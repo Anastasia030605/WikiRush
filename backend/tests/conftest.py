@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from app.core.database import Base, get_db
 from app.main import app
-from app.models import User
+from app.models.user import User
 from app.core.security import get_password_hash
 
 # Test database URL
@@ -60,7 +60,6 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # ВАЖНО: используем ASGITransport
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test"
@@ -73,15 +72,24 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """Create test user"""
+    # Короткий пароль для тестов
+    test_password = "test123"
+
     user = User(
         username="testuser",
         email="test@example.com",
-        hashed_password=get_password_hash("testpassword"),
+        hashed_password=get_password_hash(test_password),
         is_active=True,
+        total_games=0,
+        total_wins=0,
     )
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
+
+    # Сохраняем пароль как атрибут для использования в тестах
+    user.plain_password = test_password
+
     return user
 
 
@@ -92,9 +100,11 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
         "/api/v1/auth/login",
         json={
             "username": test_user.username,
-            "password": "testpassword"
+            "password": test_user.plain_password
         }
     )
+
+    assert response.status_code == 200, f"Login failed: {response.text}"
 
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

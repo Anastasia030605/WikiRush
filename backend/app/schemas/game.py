@@ -12,8 +12,8 @@ from app.schemas.user import UserPublic
 class GameCreate(BaseModel):
     """Схема создания игры"""
     mode: GameMode
-    start_article: str
-    target_article: str
+    start_article: str | None = Field(default=None, example="")  # Если None, будет выбрана случайная статья
+    target_article: str | None = Field(default=None, example="")  # Если None, будет выбрана случайная статья
     max_steps: int = Field(default=100, ge=1, le=1000)
     time_limit: int = Field(default=300, ge=30, le=3600)  # От 30 секунд до 1 часа
     max_players: int = Field(default=10, ge=1, le=50)

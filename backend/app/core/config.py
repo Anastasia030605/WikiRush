@@ -2,7 +2,7 @@
 Конфигурация приложения
 """
 from typing import Any
-from pydantic import PostgresDsn, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,15 +35,17 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "wikirush"
     POSTGRES_PORT: int = 5432
-    DATABASE_URL: PostgresDsn | None = None
-    
+    DATABASE_URL: str | None = None
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: str | None, info: Any) -> str:
         if isinstance(v, str):
             return v
-        
+
+        # If DATABASE_URL is not provided, build PostgreSQL URL from components
         data = info.data
+        from pydantic import PostgresDsn
         return str(PostgresDsn.build(
             scheme="postgresql+asyncpg",
             username=data.get("POSTGRES_USER"),

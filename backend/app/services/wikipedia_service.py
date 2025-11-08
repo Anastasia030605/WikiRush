@@ -16,11 +16,15 @@ class WikipediaService:
         self.api_url = settings.WIKIPEDIA_API_URL
         self.timeout = httpx.Timeout(10.0)
         self._rate_limiter = asyncio.Semaphore(settings.WIKIPEDIA_RATE_LIMIT)
-    
+        # User-Agent обязателен для Wikipedia API
+        self.headers = {
+            "User-Agent": "WikiRush/0.1.0 (https://github.com/yourusername/wikirush; your@email.com)"
+        }
+
     async def _make_request(self, params: dict[str, Any]) -> dict[str, Any]:
         """Выполнение запроса к Wikipedia API с rate limiting"""
         async with self._rate_limiter:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
                 response = await client.get(self.api_url, params=params)
                 response.raise_for_status()
                 return response.json()
@@ -127,9 +131,9 @@ class WikipediaService:
         return to_article in links
     
     async def get_shortest_path_length(
-        self, 
-        start: str, 
-        target: str, 
+        self,
+        start: str,
+        target: str,
         max_depth: int = 6
     ) -> int | None:
         """
@@ -138,26 +142,66 @@ class WikipediaService:
         """
         if start == target:
             return 0
-        
+
         visited = {start}
         queue = [(start, 0)]
-        
+
         while queue and len(visited) < 1000:  # Ограничение для производительности
             current, depth = queue.pop(0)
-            
+
             if depth >= max_depth:
                 continue
-            
+
             links = await self.get_article_links(current, limit=100)
-            
+
             for link in links:
                 if link == target:
                     return depth + 1
-                
+
                 if link not in visited:
                     visited.add(link)
                     queue.append((link, depth + 1))
-        
+
+        return None
+
+    async def get_reachable_article_at_depth(
+        self,
+        start: str,
+        depth: int = 2
+    ) -> str | None:
+        """
+        Получить случайную статью, достижимую за указанное количество переходов
+        depth=1: выбирает из прямых ссылок начальной статьи
+        depth=2: выбирает из ссылок второго уровня
+        """
+        import random
+
+        if depth < 1:
+            return start
+
+        current_level = [start]
+
+        for level in range(depth):
+            next_level = []
+
+            # Для каждой статьи текущего уровня получаем ссылки
+            for article in current_level[:5]:  # Ограничиваем количество для производительности
+                links = await self.get_article_links(article, limit=50)
+                next_level.extend(links)
+
+            if not next_level:
+                return None
+
+            # Убираем дубликаты
+            next_level = list(set(next_level))
+
+            # Если это последний уровень - выбираем случайную статью
+            if level == depth - 1:
+                return random.choice(next_level)
+
+            # Иначе берём случайную выборку для следующей итерации
+            current_level = random.sample(next_level, min(3, len(next_level)))
+
         return None
 
 

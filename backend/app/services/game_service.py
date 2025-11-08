@@ -20,23 +20,45 @@ class GameService:
         db: AsyncSession,
         creator_id: int,
         mode: GameMode,
-        start_article: str,
-        target_article: str,
+        start_article: str | None,
+        target_article: str | None,
         max_steps: int,
         time_limit: int,
         max_players: int
     ) -> Game:
         """Создание новой игры"""
+        # Генерируем случайные статьи если не указаны
+        if not start_article:
+            start_article = await wikipedia_service.get_random_article()
+            if not start_article:
+                raise ValueError("Не удалось получить случайную начальную статью")
+
+        if not target_article:
+            # Генерируем целевую статью, достижимую от начальной за 2-3 перехода
+            import random
+            depth = random.randint(2, 3)  # Глубина поиска 2-3 перехода
+
+            max_attempts = 3
+            for _ in range(max_attempts):
+                target_article = await wikipedia_service.get_reachable_article_at_depth(
+                    start_article, depth
+                )
+                if target_article and target_article != start_article:
+                    break
+
+            if not target_article or target_article == start_article:
+                raise ValueError("Не удалось найти достижимую целевую статью")
+
         # Проверяем существование статей
         start_exists = await wikipedia_service.validate_article_exists(start_article)
         target_exists = await wikipedia_service.validate_article_exists(target_article)
-        
+
         if not start_exists:
             raise ValueError(f"Статья '{start_article}' не найдена")
-        
+
         if not target_exists:
             raise ValueError(f"Статья '{target_article}' не найдена")
-        
+
         if start_article == target_article:
             raise ValueError("Начальная и целевая статьи не могут быть одинаковыми")
         

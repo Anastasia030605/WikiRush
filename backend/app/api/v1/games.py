@@ -16,6 +16,7 @@ from app.schemas.game import (
 )
 from app.services.game_service import game_service
 from app.services.websocket_service import websocket_manager
+from app.services.wikipedia_service import wikipedia_service
 
 router = APIRouter()
 
@@ -58,7 +59,7 @@ async def list_games(
 ):
     """Получение списка игр"""
     skip = (page - 1) * page_size
-    
+
     games, total = await game_service.list_games(
         db=db,
         status=status_filter,
@@ -66,7 +67,7 @@ async def list_games(
         skip=skip,
         limit=page_size,
     )
-    
+
     games_public = [
         GamePublic(
             **game.__dict__,
@@ -74,13 +75,51 @@ async def list_games(
         )
         for game in games
     ]
-    
+
     return GameListResponse(
         games=games_public,
         total=total,
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/random-articles")
+async def get_random_articles():
+    """Получить случайные начальную и целевую статьи с гарантированным путём между ними"""
+    import random
+
+    start_article = await wikipedia_service.get_random_article()
+
+    if not start_article:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось получить случайную начальную статью"
+        )
+
+    # Генерируем целевую статью, достижимую за 2-3 перехода
+    depth = random.randint(2, 3)
+    target_article = None
+    max_attempts = 3
+
+    for _ in range(max_attempts):
+        target_article = await wikipedia_service.get_reachable_article_at_depth(
+            start_article, depth
+        )
+        if target_article and target_article != start_article:
+            break
+
+    if not target_article or target_article == start_article:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось найти достижимую целевую статью"
+        )
+
+    return {
+        "start_article": start_article,
+        "target_article": target_article,
+        "min_steps": depth  # Минимальное количество шагов до цели
+    }
 
 
 @router.get("/{game_id}", response_model=GameDetail)
@@ -90,14 +129,62 @@ async def get_game(
 ):
     """Получение информации об игре"""
     game = await game_service.get_game(db, game_id)
-    
+
     if not game:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Игра не найдена"
         )
-    
+
     return game
+
+
+@router.get("/{game_id}/available-links")
+async def get_available_links(
+    game_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Получить доступные ссылки из текущей статьи игрока"""
+    # Получаем игру
+    game = await game_service.get_game(db, game_id)
+
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Игра не найдена"
+        )
+
+    # Находим участника
+    from sqlalchemy import select
+    from app.models.game import GameParticipant
+
+    result = await db.execute(
+        select(GameParticipant).where(
+            GameParticipant.game_id == game_id,
+            GameParticipant.user_id == current_user.id
+        )
+    )
+    participant = result.scalar_one_or_none()
+
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Вы не участвуете в этой игре"
+        )
+
+    # Получаем текущую статью
+    current_article = participant.current_article or game.start_article
+
+    # Получаем доступные ссылки
+    links = await wikipedia_service.get_article_links(current_article, limit=100)
+
+    return {
+        "current_article": current_article,
+        "target_article": game.target_article,
+        "available_links": links,
+        "total_links": len(links)
+    }
 
 
 @router.post("/{game_id}/join", response_model=GameJoinResponse)
@@ -219,22 +306,22 @@ async def game_websocket(
     """WebSocket для real-time обновлений игры"""
     # Проверяем существование игры
     game = await game_service.get_game(db, game_id)
-    
+
     if not game:
         await websocket.close(code=1008, reason="Game not found")
         return
-    
+
     # Подключаемся
     await websocket_manager.connect(websocket, game_id)
-    
+
     try:
         while True:
             # Просто держим соединение открытым
             # Все сообщения отправляются через websocket_manager
             data = await websocket.receive_text()
-            
+
             # Можно обрабатывать входящие сообщения от клиента
             # Например, ping/pong для keep-alive
-            
+
     except WebSocketDisconnect:
         websocket_manager.disconnect(websocket, game_id)
