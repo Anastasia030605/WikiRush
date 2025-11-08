@@ -2,6 +2,7 @@
 Tests for authentication
 """
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 
 
@@ -16,7 +17,7 @@ async def test_register_user(client: AsyncClient):
             "password": "password123"
         }
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["username"] == "newuser"
@@ -35,7 +36,7 @@ async def test_register_duplicate_username(client: AsyncClient, test_user):
             "password": "password123"
         }
     )
-    
+
     assert response.status_code == 400
     assert "уже существует" in response.json()["detail"]
 
@@ -50,7 +51,7 @@ async def test_login_success(client: AsyncClient, test_user):
             "password": "testpassword"
         }
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -68,7 +69,7 @@ async def test_login_invalid_credentials(client: AsyncClient, test_user):
             "password": "wrongpassword"
         }
     )
-    
+
     assert response.status_code == 401
 
 
@@ -79,7 +80,7 @@ async def test_get_current_user(client: AsyncClient, auth_headers):
         "/api/v1/users/me",
         headers=auth_headers
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "testuser"

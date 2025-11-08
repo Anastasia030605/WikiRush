@@ -2,6 +2,7 @@
 Tests for game functionality
 """
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 
 
@@ -20,7 +21,7 @@ async def test_create_game(client: AsyncClient, auth_headers):
             "max_players": 1
         }
     )
-    
+
     # This might fail if Wikipedia API is not accessible
     # In real tests, we should mock the Wikipedia service
     assert response.status_code in [201, 400]
@@ -30,7 +31,7 @@ async def test_create_game(client: AsyncClient, auth_headers):
 async def test_list_games(client: AsyncClient):
     """Test listing games"""
     response = await client.get("/api/v1/games")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "games" in data
@@ -42,7 +43,7 @@ async def test_list_games(client: AsyncClient):
 async def test_get_leaderboard(client: AsyncClient):
     """Test getting leaderboard"""
     response = await client.get("/api/v1/leaderboard")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)

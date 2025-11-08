@@ -2,10 +2,11 @@
 Pytest configuration and fixtures
 """
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 
 import pytest
-from httpx import AsyncClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.database import Base, get_db
@@ -31,41 +32,45 @@ TestSessionLocal = async_sessionmaker(
 
 
 @pytest.fixture(scope="session")
-def event_loop():
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     """Create event loop for tests"""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create test database session"""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     async with TestSessionLocal() as session:
         yield session
-    
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create test client"""
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        yield client
-    
+
+    # ВАЖНО: используем ASGITransport
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test"
+    ) as ac:
+        yield ac
+
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """Create test user"""
     user = User(
@@ -80,7 +85,7 @@ async def test_user(db_session: AsyncSession) -> User:
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
     """Get authentication headers"""
     response = await client.post(
@@ -90,6 +95,6 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
             "password": "testpassword"
         }
     )
-    
+
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
