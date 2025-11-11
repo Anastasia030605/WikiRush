@@ -3,7 +3,7 @@ API v1 router
 """
 from fastapi import APIRouter
 
-from app.api.v1 import auth, games, leaderboard, users, wikipedia
+from . import auth, games, leaderboard, users, wikipedia
 
 api_router = APIRouter()
 
