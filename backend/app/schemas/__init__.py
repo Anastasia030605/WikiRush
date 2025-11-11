@@ -1,19 +1,19 @@
 """
 Pydantic schemas
 """
-from app.schemas.achievement import (
+from .achievement import (
     AchievementBase,
     AchievementPublic,
     UserAchievementPublic,
 )
-from app.schemas.auth import (
+from .auth import (
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
     Token,
     TokenPayload,
 )
-from app.schemas.game import (
+from .game import (
     GameCreate,
     GameDetail,
     GameJoinResponse,
@@ -25,7 +25,7 @@ from app.schemas.game import (
     GamePublic,
     GameUpdate,
 )
-from app.schemas.user import (
+from .user import (
     UserCreate,
     UserInDB,
     UserProfile,

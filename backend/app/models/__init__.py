@@ -1,9 +1,9 @@
 """
 Database models
 """
-from app.models.achievement import Achievement, UserAchievement
-from app.models.game import Game, GameMode, GameParticipant, GameStatus
-from app.models.user import User
+from .achievement import Achievement, UserAchievement
+from .game import Game, GameMode, GameParticipant, GameStatus
+from .user import User
 
 __all__ = [
     "User",
