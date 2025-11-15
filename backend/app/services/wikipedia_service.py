@@ -25,8 +25,11 @@ class WikipediaService:
         """Выполнение запроса к Wikipedia API с rate limiting"""
         async with self._rate_limiter:
             async with httpx.AsyncClient(
-                timeout=self.timeout, headers=self.headers
+                timeout=self.timeout,
+                headers=self.headers,
+                trust_env=False  # Отключаем использование системных прокси
             ) as client:
+                print(f"[DEBUG] Requesting: {self.api_url} with params: {params}")
                 response = await client.get(self.api_url, params=params)
                 response.raise_for_status()
                 return response.json()
@@ -54,7 +57,9 @@ class WikipediaService:
 
             return None
         except Exception as e:
+            import traceback
             print(f"Error fetching article info: {e}")
+            print(f"Full traceback: {traceback.format_exc()}")
             return None
 
     async def get_article_links(self, title: str, limit: int = 500) -> list[str]:

@@ -3,8 +3,14 @@ Pydantic schemas
 """
 from .achievement import (
     AchievementBase,
+    AchievementDetail,
     AchievementPublic,
-    UserAchievementPublic,
+    AchievementWithStats,
+    ShareAchievementRequest,
+    ShareAchievementResponse,
+    UserAchievementProgress,
+    UserAchievementsList,
+    UserAchievementWithStats,
 )
 from .auth import (
     LoginRequest,
@@ -62,5 +68,11 @@ __all__ = [
     # Achievement
     "AchievementBase",
     "AchievementPublic",
-    "UserAchievementPublic",
+    "AchievementWithStats",
+    "AchievementDetail",
+    "UserAchievementProgress",
+    "UserAchievementWithStats",
+    "UserAchievementsList",
+    "ShareAchievementRequest",
+    "ShareAchievementResponse",
 ]

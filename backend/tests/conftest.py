@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.achievement import Achievement
 from app.models.user import User
 from app.core.security import get_password_hash
 
@@ -94,7 +95,67 @@ async def test_user(db_session: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
+async def test_achievements(db_session: AsyncSession) -> list[Achievement]:
+    """Create test achievements"""
+    achievements_data = [
+        {
+            "code": "first_game",
+            "name": "Первые шаги",
+            "description": "Сыграйте свою первую игру в WikiRush",
+            "icon": "🎮",
+            "category": "games",
+            "rarity": "common",
+            "requirement": {"type": "games_played", "target": 1},
+            "points": 10,
+            "chain": ["first_game", "games_10"],
+        },
+        {
+            "code": "games_10",
+            "name": "Любитель",
+            "description": "Сыграйте 10 игр",
+            "icon": "🎯",
+            "category": "games",
+            "rarity": "common",
+            "requirement": {"type": "games_played", "target": 10},
+            "points": 25,
+            "chain": ["first_game", "games_10"],
+        },
+        {
+            "code": "first_win",
+            "name": "Первая победа",
+            "description": "Одержите свою первую победу",
+            "icon": "🏆",
+            "category": "wins",
+            "rarity": "common",
+            "requirement": {"type": "games_won", "target": 1},
+            "points": 15,
+            "chain": ["first_win", "wins_10"],
+        },
+        {
+            "code": "wins_10",
+            "name": "Победитель",
+            "description": "Одержите 10 побед",
+            "icon": "🥇",
+            "category": "wins",
+            "rarity": "common",
+            "requirement": {"type": "games_won", "target": 10},
+            "points": 30,
+            "chain": ["first_win", "wins_10"],
+        },
+    ]
+
+    achievements = []
+    for ach_data in achievements_data:
+        achievement = Achievement(**ach_data)
+        db_session.add(achievement)
+        achievements.append(achievement)
+
+    await db_session.commit()
+    return achievements
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client: AsyncClient, test_user: User, test_achievements) -> dict[str, str]:
     """Get authentication headers"""
     response = await client.post(
         "/api/v1/auth/login",
