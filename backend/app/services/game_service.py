@@ -267,6 +267,12 @@ class GameService:
         await db.commit()
         await db.refresh(participant)
 
+        # Проверяем и выдаем достижения после победы
+        if is_winner:
+            from app.services.achievement_service import achievement_service
+
+            await achievement_service.check_and_grant_achievements(db, user_id)
+
         return participant, is_winner
 
     async def finish_game(self, db: AsyncSession, game_id: int) -> Game:
@@ -279,13 +285,22 @@ class GameService:
         game.status = GameStatus.FINISHED.value
         game.finished_at = datetime.utcnow()
 
-        # Обновляем статистику всех участников
+        # Обновляем статистику всех участников и проверяем достижения
+        from app.services.achievement_service import achievement_service
+
         for participant in game.participants:
             user = await db.get(User, participant.user_id)
             if user:
                 user.total_games += 1
 
         await db.commit()
+
+        # Проверяем достижения для всех участников
+        for participant in game.participants:
+            await achievement_service.check_and_grant_achievements(
+                db, participant.user_id
+            )
+
         await db.refresh(game)
 
         return game

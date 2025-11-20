@@ -3,7 +3,7 @@ API v1 router
 """
 from fastapi import APIRouter
 
-from . import auth, games, leaderboard, users, wikipedia
+from . import achievements, auth, games, leaderboard, users, wikipedia
 
 api_router = APIRouter()
 
@@ -14,3 +14,6 @@ api_router.include_router(
     leaderboard.router, prefix="/leaderboard", tags=["leaderboard"]
 )
 api_router.include_router(wikipedia.router, prefix="/wikipedia", tags=["wikipedia"])
+api_router.include_router(
+    achievements.router, prefix="/achievements", tags=["achievements"]
+)
