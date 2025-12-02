@@ -29,7 +29,26 @@
       
       push('/');
     } catch (err) {
-      error = err.response?.data?.detail || 'Неверные учетные данные';
+      // ИСПРАВЛЕНИЕ: правильная обработка ошибок
+      console.error('Ошибка входа:', err);
+      
+      if (err.response) {
+        if (err.response.data && err.response.data.detail) {
+          if (typeof err.response.data.detail === 'string') {
+            error = err.response.data.detail;
+          } else if (Array.isArray(err.response.data.detail)) {
+            error = err.response.data.detail.map(e => e.msg).join(', ');
+          } else {
+            error = JSON.stringify(err.response.data.detail);
+          }
+        } else {
+          error = 'Неверные учетные данные';
+        }
+      } else if (err.request) {
+        error = 'Сервер не отвечает. Проверьте, что бэкенд запущен.';
+      } else {
+        error = 'Ошибка: ' + err.message;
+      }
     } finally {
       loading = false;
     }
@@ -134,6 +153,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    word-break: break-word;
   }
 
   .form-group {

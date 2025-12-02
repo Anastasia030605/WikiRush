@@ -1,4 +1,5 @@
 <script>
+  import Test from './routes/Test.svelte';
   import Router from 'svelte-spa-router';
   import { onMount } from 'svelte';
   import Header from './lib/components/Header.svelte';
@@ -15,6 +16,7 @@
 
   const routes = {
     '/': Home,
+    '/test': Test,
     '/login': Login,
     '/register': Register,
     '/games': GamesList,

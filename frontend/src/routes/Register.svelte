@@ -49,7 +49,34 @@
       
       push('/');
     } catch (err) {
-      error = err.response?.data?.detail || 'Ошибка регистрации';
+      // ИСПРАВЛЕНИЕ: правильная обработка ошибок
+      console.error('Ошибка регистрации:', err);
+      
+      if (err.response) {
+        // Ошибка от сервера
+        if (err.response.data && err.response.data.detail) {
+          // Если detail это строка
+          if (typeof err.response.data.detail === 'string') {
+            error = err.response.data.detail;
+          } 
+          // Если detail это массив (валидация Pydantic)
+          else if (Array.isArray(err.response.data.detail)) {
+            error = err.response.data.detail.map(e => e.msg).join(', ');
+          } 
+          // Если detail это объект
+          else {
+            error = JSON.stringify(err.response.data.detail);
+          }
+        } else {
+          error = 'Ошибка регистрации: ' + err.response.status;
+        }
+      } else if (err.request) {
+        // Запрос был отправлен, но ответа не получено
+        error = 'Сервер не отвечает. Проверьте, что бэкенд запущен.';
+      } else {
+        // Что-то пошло не так при настройке запроса
+        error = 'Ошибка: ' + err.message;
+      }
     } finally {
       loading = false;
     }
@@ -178,6 +205,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    word-break: break-word;
   }
 
   .form-group {
