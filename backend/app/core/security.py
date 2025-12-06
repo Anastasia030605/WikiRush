@@ -2,7 +2,7 @@
 Модуль безопасности: хеширование паролей, JWT токены
 """
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Dict, Optional, Union
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -13,7 +13,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(
-    subject: str | int, expires_delta: timedelta | None = None
+    subject: Union[str, int], expires_delta: Optional[timedelta] = None
 ) -> str:
     """Создание JWT access токена"""
     if expires_delta:
@@ -30,7 +30,7 @@ def create_access_token(
     return encoded_jwt
 
 
-def create_refresh_token(subject: str | int) -> str:
+def create_refresh_token(subject: Union[str, int]) -> str:
     """Создание JWT refresh токена"""
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
@@ -52,6 +52,6 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def decode_token(token: str) -> dict[str, Any]:
+def decode_token(token: str) -> Dict[str, Any]:
     """Декодирование JWT токена"""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

@@ -3,7 +3,7 @@
 """
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -62,10 +62,10 @@ class Game(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    started_at: Mapped[datetime | None] = mapped_column(
+    started_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    finished_at: Mapped[datetime | None] = mapped_column(
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -74,7 +74,7 @@ class Game(Base):
         "User", back_populates="created_games", foreign_keys=[creator_id]
     )
 
-    participants: Mapped[list["GameParticipant"]] = relationship(
+    participants: Mapped[List["GameParticipant"]] = relationship(
         "GameParticipant", back_populates="game", cascade="all, delete-orphan"
     )
 
@@ -101,19 +101,19 @@ class GameParticipant(Base):
     is_finished: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_winner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     steps_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    time_taken: Mapped[int | None] = mapped_column(Integer, nullable=True)  # В секундах
+    time_taken: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # В секундах
 
     # Путь (список посещенных статей)
-    path: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    path: Mapped[List[str]] = mapped_column(JSON, default=list, nullable=False)
 
     # Прогресс соперника (видимость для других игроков)
-    current_article: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_article: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Временные метки
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    finished_at: Mapped[datetime | None] = mapped_column(
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

@@ -2,7 +2,7 @@
 WebSocket сервис для real-time обновлений игры
 """
 import json
-from typing import Any
+from typing import Any, Dict, List
 
 from fastapi import WebSocket
 
@@ -12,7 +12,7 @@ class ConnectionManager:
 
     def __init__(self):
         # game_id -> list of websockets
-        self.active_connections: dict[int, list[WebSocket]] = {}
+        self.active_connections: Dict[int, List[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, game_id: int):
         """Подключение к игре"""
@@ -33,12 +33,12 @@ class ConnectionManager:
                 del self.active_connections[game_id]
 
     async def send_personal_message(
-        self, message: dict[str, Any], websocket: WebSocket
+        self, message: Dict[str, Any], websocket: WebSocket
     ):
         """Отправка личного сообщения"""
         await websocket.send_text(json.dumps(message))
 
-    async def broadcast_to_game(self, message: dict[str, Any], game_id: int):
+    async def broadcast_to_game(self, message: Dict[str, Any], game_id: int):
         """Отправка сообщения всем участникам игры"""
         if game_id in self.active_connections:
             disconnected = []

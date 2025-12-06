@@ -2,6 +2,7 @@
 Схемы для пользователей
 """
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -22,9 +23,9 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Схема обновления пользователя"""
 
-    username: str | None = None
-    email: EmailStr | None = None
-    password: str | None = None
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
 
 
 class UserInDB(UserBase):
@@ -48,8 +49,8 @@ class UserPublic(BaseModel):
     username: str
     total_games: int
     total_wins: int
-    best_time: int | None
-    best_steps: int | None
+    best_time: Optional[int]
+    best_steps: Optional[int]
 
 
 class UserProfile(UserPublic):
@@ -69,7 +70,7 @@ class UserStats(BaseModel):
     total_games: int
     total_wins: int
     win_rate: float
-    best_time: int | None
-    best_steps: int | None
-    average_steps: float | None
-    average_time: float | None
+    best_time: Optional[int]
+    best_steps: Optional[int]
+    average_steps: Optional[float]
+    average_time: Optional[float]

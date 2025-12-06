@@ -2,6 +2,7 @@
 Сервис для работы с достижениями
 """
 from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +49,7 @@ class AchievementService:
 
     async def check_and_grant_achievements(
         self, db: AsyncSession, user_id: int
-    ) -> list[Achievement]:
+    ) -> List[Achievement]:
         """
         Проверяет условия и выдает достижения пользователю
         Возвращает список новых полученных достижений
@@ -105,7 +106,7 @@ class AchievementService:
 
     async def get_user_achievements(
         self, db: AsyncSession, user_id: int
-    ) -> dict[str, list]:
+    ) -> Dict[str, list]:
         """
         Получить все достижения пользователя с группировкой
         Возвращает словарь с unlocked и locked достижениями
@@ -165,7 +166,7 @@ class AchievementService:
 
     async def get_achievement_detail(
         self, db: AsyncSession, achievement_id: int, user_id: int
-    ) -> dict | None:
+    ) -> Optional[dict]:
         """Получить детальную информацию о достижении"""
         # Получаем достижение
         ach_result = await db.execute(
@@ -217,7 +218,7 @@ class AchievementService:
 
     async def get_share_data(
         self, db: AsyncSession, achievement_code: str, user_id: int
-    ) -> dict | None:
+    ) -> Optional[dict]:
         """Получить данные для шаринга достижения"""
         # Получаем достижение по коду
         ach_result = await db.execute(
@@ -278,7 +279,7 @@ class AchievementService:
 
     async def get_achievement_by_code(
         self, db: AsyncSession, code: str
-    ) -> Achievement | None:
+    ) -> Optional[Achievement]:
         """Получить достижение по коду"""
         result = await db.execute(select(Achievement).where(Achievement.code == code))
         return result.scalar_one_or_none()

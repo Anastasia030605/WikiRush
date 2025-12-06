@@ -2,7 +2,7 @@
 Модели достижений
 """
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,7 +23,7 @@ class Achievement(Base):
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    icon: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Категория достижения (games, speed, wins, streaks, special)
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="games")
@@ -41,14 +41,14 @@ class Achievement(Base):
     points: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
 
     # Связанные достижения (цепочка), например: ["first_win", "win_10", "win_50"]
-    chain: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    chain: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     # Relationships
-    user_achievements: Mapped[list["UserAchievement"]] = relationship(
+    user_achievements: Mapped[List["UserAchievement"]] = relationship(
         "UserAchievement", back_populates="achievement", cascade="all, delete-orphan"
     )
 
@@ -77,7 +77,7 @@ class UserAchievement(Base):
     # Флаг разблокировки
     is_unlocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    unlocked_at: Mapped[datetime | None] = mapped_column(
+    unlocked_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

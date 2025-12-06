@@ -2,6 +2,7 @@
 Схемы для игр
 """
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,10 +14,10 @@ class GameCreate(BaseModel):
     """Схема создания игры"""
 
     mode: GameMode
-    start_article: str | None = Field(
+    start_article: Optional[str] = Field(
         default=None, json_schema_extra={"example": ""}
     )  # Если None, будет выбрана случайная статья
-    target_article: str | None = Field(
+    target_article: Optional[str] = Field(
         default=None, json_schema_extra={"example": ""}
     )  # Если None, будет выбрана случайная статья
     max_steps: int = Field(default=100, ge=1, le=1000)
@@ -27,9 +28,9 @@ class GameCreate(BaseModel):
 class GameUpdate(BaseModel):
     """Схема обновления игры"""
 
-    status: GameStatus | None = None
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
+    status: Optional[GameStatus] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
 
 
 class GameParticipantBase(BaseModel):
@@ -42,8 +43,8 @@ class GameParticipantBase(BaseModel):
     is_finished: bool
     is_winner: bool
     steps_count: int
-    time_taken: int | None
-    current_article: str | None
+    time_taken: Optional[int]
+    current_article: Optional[str]
     joined_at: datetime
 
 
@@ -56,8 +57,8 @@ class GameParticipantPublic(GameParticipantBase):
 class GameParticipantDetail(GameParticipantPublic):
     """Детальная информация об участнике (включая путь)"""
 
-    path: list[str]
-    finished_at: datetime | None
+    path: List[str]
+    finished_at: Optional[datetime]
 
 
 class GameBase(BaseModel):
@@ -87,9 +88,9 @@ class GameDetail(GameBase):
     """Детальная информация об игре"""
 
     creator: UserPublic
-    participants: list[GameParticipantPublic]
-    started_at: datetime | None
-    finished_at: datetime | None
+    participants: List[GameParticipantPublic]
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
 
 
 class GameJoinResponse(BaseModel):
@@ -113,13 +114,13 @@ class GameMoveResponse(BaseModel):
     current_article: str
     steps_count: int
     is_target_reached: bool
-    message: str | None = None
+    message: Optional[str] = None
 
 
 class GameListResponse(BaseModel):
     """Список игр"""
 
-    games: list[GamePublic]
+    games: List[GamePublic]
     total: int
     page: int
     page_size: int

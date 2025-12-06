@@ -1,7 +1,7 @@
 """
 Конфигурация приложения
 """
-from typing import Any
+from typing import Any, List, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175"]
 
     # База данных
     POSTGRES_SERVER: str = "localhost"
@@ -33,11 +33,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "wikirush"
     POSTGRES_PORT: int = 5432
-    DATABASE_URL: str | None = None
+    DATABASE_URL: Optional[str] = None
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
-    def assemble_db_connection(cls, v: str | None, info: Any) -> str:
+    def assemble_db_connection(cls, v: Optional[str], info: Any) -> str:
         if isinstance(v, str):
             return v
 

@@ -2,7 +2,7 @@
 Модель пользователя
 """
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,19 +44,19 @@ class User(Base):
     # Статистика
     total_games: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_wins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    best_time: Mapped[int | None] = mapped_column(Integer, nullable=True)  # В секундах
-    best_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    best_time: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # В секундах
+    best_steps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Relationships
-    game_participations: Mapped[list["GameParticipant"]] = relationship(
+    game_participations: Mapped[List["GameParticipant"]] = relationship(
         "GameParticipant", back_populates="user", cascade="all, delete-orphan"
     )
 
-    created_games: Mapped[list["Game"]] = relationship(
+    created_games: Mapped[List["Game"]] = relationship(
         "Game", back_populates="creator", foreign_keys="Game.creator_id"
     )
 
-    achievements: Mapped[list["UserAchievement"]] = relationship(
+    achievements: Mapped[List["UserAchievement"]] = relationship(
         "UserAchievement", back_populates="user", cascade="all, delete-orphan"
     )
 

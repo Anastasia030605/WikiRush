@@ -1,6 +1,8 @@
 """
 Endpoints для таблицы лидеров
 """
+from typing import List
+
 from fastapi import APIRouter, Query
 
 from app.api.deps import DBSession
@@ -10,7 +12,7 @@ from app.services.game_service import game_service
 router = APIRouter()
 
 
-@router.get("", response_model=list[UserPublic])
+@router.get("", response_model=List[UserPublic])
 async def get_leaderboard(
     db: DBSession,
     limit: int = Query(100, ge=1, le=1000),

@@ -1,6 +1,8 @@
 """
 Endpoints для игр
 """
+from typing import List, Optional
+
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -56,8 +58,8 @@ async def create_game(
 @router.get("", response_model=GameListResponse)
 async def list_games(
     db: DBSession,
-    status_filter: GameStatus | None = Query(None, alias="status"),
-    mode: GameMode | None = None,
+    status_filter: Optional[GameStatus] = Query(None, alias="status"),
+    mode: Optional[GameMode] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):

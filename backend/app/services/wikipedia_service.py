@@ -2,7 +2,7 @@
 Сервис для работы с Wikipedia API
 """
 import asyncio
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
@@ -21,7 +21,7 @@ class WikipediaService:
             "User-Agent": "WikiRush/0.1.0 (https://github.com/yourusername/wikirush; your@email.com)"
         }
 
-    async def _make_request(self, params: dict[str, Any]) -> dict[str, Any]:
+    async def _make_request(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Выполнение запроса к Wikipedia API с rate limiting"""
         async with self._rate_limiter:
             async with httpx.AsyncClient(
@@ -34,13 +34,13 @@ class WikipediaService:
                 response.raise_for_status()
                 return response.json()
 
-    async def get_article_info(self, title: str) -> dict[str, Any] | None:
+    async def get_article_info(self, title: str) -> Optional[Dict[str, Any]]:
         """Получение информации о статье"""
         params = {
             "action": "query",
             "format": "json",
             "titles": title,
-            "prop": "info|extracts",
+            "prop": "Union[info, extracts]",
             "exintro": True,
             "explaintext": True,
         }
@@ -62,7 +62,7 @@ class WikipediaService:
             print(f"Full traceback: {traceback.format_exc()}")
             return None
 
-    async def get_article_links(self, title: str, limit: int = 500) -> list[str]:
+    async def get_article_links(self, title: str, limit: int = 500) -> List[str]:
         """Получение списка ссылок из статьи"""
         params = {
             "action": "query",
@@ -89,7 +89,7 @@ class WikipediaService:
 
     async def search_articles(
         self, query: str, limit: int = 10
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """Поиск статей по запросу"""
         params = {
             "action": "query",
@@ -107,7 +107,7 @@ class WikipediaService:
             print(f"Error searching articles: {e}")
             return []
 
-    async def get_random_article(self) -> str | None:
+    async def get_random_article(self) -> Optional[str]:
         """Получение случайной статьи"""
         params = {
             "action": "query",
@@ -141,7 +141,7 @@ class WikipediaService:
 
     async def get_shortest_path_length(
         self, start: str, target: str, max_depth: int = 6
-    ) -> int | None:
+    ) -> Optional[int]:
         """
         Приблизительная оценка длины кратчайшего пути (BFS)
         Возвращает None если путь не найден
@@ -172,7 +172,7 @@ class WikipediaService:
 
     async def get_reachable_article_at_depth(
         self, start: str, depth: int = 2
-    ) -> str | None:
+    ) -> Optional[str]:
         """
         Получить случайную статью, достижимую за указанное количество переходов
         depth=1: выбирает из прямых ссылок начальной статьи

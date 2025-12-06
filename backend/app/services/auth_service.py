@@ -1,6 +1,7 @@
 """
 Сервис аутентификации
 """
+from typing import Optional
 
 from jose import JWTError
 from sqlalchemy import select
@@ -22,7 +23,7 @@ class AuthService:
 
     async def authenticate_user(
         self, db: AsyncSession, username: str, password: str
-    ) -> User | None:
+    ) -> Optional[User]:
         """Аутентификация пользователя"""
         result = await db.execute(select(User).where(User.username == username))
         user = result.scalar_one_or_none()
@@ -58,17 +59,17 @@ class AuthService:
 
     async def get_user_by_username(
         self, db: AsyncSession, username: str
-    ) -> User | None:
+    ) -> Optional[User]:
         """Получение пользователя по username"""
         result = await db.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()
 
-    async def get_user_by_email(self, db: AsyncSession, email: str) -> User | None:
+    async def get_user_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
         """Получение пользователя по email"""
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> User | None:
+    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> Optional[User]:
         """Получение пользователя по ID"""
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
@@ -84,7 +85,7 @@ class AuthService:
 
     async def refresh_access_token(
         self, db: AsyncSession, refresh_token: str
-    ) -> Token | None:
+    ) -> Optional[Token]:
         """Обновление access токена используя refresh токен"""
         try:
             payload = decode_token(refresh_token)

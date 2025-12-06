@@ -18,8 +18,8 @@
     '/login': Login,
     '/register': Register,
     '/games': GamesList,
-    '/games/create': CreateGame,
-    '/games/:id': GameRoom,
+    '/create-game': CreateGame,
+    '/game/:id': GameRoom,
     '/profile': Profile,
     '/leaderboard': Leaderboard,
   };

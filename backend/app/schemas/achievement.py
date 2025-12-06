@@ -2,6 +2,7 @@
 Схемы для достижений
 """
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,12 +16,12 @@ class AchievementBase(BaseModel):
     code: str
     name: str
     description: str
-    icon: str | None
+    icon: Optional[str]
     category: str
     rarity: str
     requirement: dict
     points: int
-    chain: list | None
+    chain: Optional[list]
 
 
 class AchievementPublic(AchievementBase):
@@ -43,7 +44,7 @@ class UserAchievementProgress(BaseModel):
     achievement: AchievementPublic
     progress: int  # Текущий прогресс
     is_unlocked: bool
-    unlocked_at: datetime | None
+    unlocked_at: Optional[datetime]
 
 
 class UserAchievementWithStats(UserAchievementProgress):
@@ -56,8 +57,8 @@ class UserAchievementWithStats(UserAchievementProgress):
 class UserAchievementsList(BaseModel):
     """Список достижений пользователя с группировкой"""
 
-    unlocked: list[UserAchievementWithStats]  # Полученные (цветные)
-    locked: list[UserAchievementWithStats]  # Неполученные (серые + прогресс)
+    unlocked: List[UserAchievementWithStats]  # Полученные (цветные)
+    locked: List[UserAchievementWithStats]  # Неполученные (серые + прогресс)
     total_points: int  # Общее количество набранных баллов
 
 
@@ -65,7 +66,7 @@ class AchievementDetail(AchievementWithStats):
     """Детальная информация о достижении"""
 
     created_at: datetime
-    related_achievements: list[AchievementPublic] | None  # Связанные в цепочке
+    related_achievements: Optional[List[AchievementPublic]]  # Связанные в цепочке
 
 
 class ShareAchievementRequest(BaseModel):

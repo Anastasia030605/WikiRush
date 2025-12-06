@@ -33,12 +33,9 @@
       });
 
       // Автоматический вход после регистрации
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
-
-      const loginResponse = await apiClient.post('/auth/login', formData, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      const loginResponse = await apiClient.post('/auth/login', {
+        username,
+        password
       });
 
       localStorage.setItem('access_token', loginResponse.data.access_token);
@@ -49,7 +46,23 @@
       
       push('/');
     } catch (err) {
-      error = err.response?.data?.detail || 'Ошибка регистрации';
+      console.error('Registration error:', err);
+      if (err.response?.data?.detail) {
+        // Если detail это массив (validation errors)
+        if (Array.isArray(err.response.data.detail)) {
+          error = err.response.data.detail.map(e => e.msg).join(', ');
+        }
+        // Если detail это объект
+        else if (typeof err.response.data.detail === 'object') {
+          error = JSON.stringify(err.response.data.detail);
+        }
+        // Если detail это строка
+        else {
+          error = err.response.data.detail;
+        }
+      } else {
+        error = err.message || 'Ошибка регистрации';
+      }
     } finally {
       loading = false;
     }

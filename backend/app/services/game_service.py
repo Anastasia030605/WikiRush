@@ -2,6 +2,7 @@
 Сервис для работы с играми
 """
 from datetime import datetime
+from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,8 +21,8 @@ class GameService:
         db: AsyncSession,
         creator_id: int,
         mode: GameMode,
-        start_article: str | None,
-        target_article: str | None,
+        start_article: Optional[str],
+        target_article: Optional[str],
         max_steps: int,
         time_limit: int,
         max_players: int,
@@ -83,7 +84,7 @@ class GameService:
 
         return game
 
-    async def get_game(self, db: AsyncSession, game_id: int) -> Game | None:
+    async def get_game(self, db: AsyncSession, game_id: int) -> Optional[Game]:
         """Получение игры по ID"""
         result = await db.execute(
             select(Game)
@@ -98,11 +99,11 @@ class GameService:
     async def list_games(
         self,
         db: AsyncSession,
-        status: GameStatus | None = None,
-        mode: GameMode | None = None,
+        status: Optional[GameStatus] = None,
+        mode: Optional[GameMode] = None,
         skip: int = 0,
         limit: int = 20,
-    ) -> tuple[list[Game], int]:
+    ) -> Tuple[List[Game], int]:
         """Получение списка игр"""
         query = select(Game).options(
             selectinload(Game.creator), selectinload(Game.participants)
@@ -195,7 +196,7 @@ class GameService:
 
     async def make_move(
         self, db: AsyncSession, game_id: int, user_id: int, article: str
-    ) -> tuple[GameParticipant, bool]:
+    ) -> Tuple[GameParticipant, bool]:
         """
         Совершить ход (перейти на статью)
         Возвращает (participant, is_winner)
@@ -305,7 +306,7 @@ class GameService:
 
         return game
 
-    async def get_leaderboard(self, db: AsyncSession, limit: int = 100) -> list[User]:
+    async def get_leaderboard(self, db: AsyncSession, limit: int = 100) -> List[User]:
         """Получение таблицы лидеров"""
         result = await db.execute(
             select(User)
