@@ -1,6 +1,7 @@
 """
 FastAPI приложение WikiRush
 """
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import init_db
+from app.services.game_monitor import game_monitor
 
 
 @asynccontextmanager
@@ -19,10 +21,21 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("Database initialized")
 
+    # Запускаем фоновую задачу мониторинга игр
+    monitor_task = asyncio.create_task(game_monitor.start())
+    print("Game monitor started")
+
     yield
 
     # Shutdown
     print("Shutting down...")
+    await game_monitor.stop()
+    monitor_task.cancel()
+    try:
+        await monitor_task
+    except asyncio.CancelledError:
+        pass
+    print("Game monitor stopped")
 
 
 app = FastAPI(

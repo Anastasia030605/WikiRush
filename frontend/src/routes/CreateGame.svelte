@@ -46,6 +46,12 @@
       const gameId = response.data.id;
 
       await apiClient.post(`/games/${gameId}/join`);
+
+      // Auto-start single player games
+      if (mode === 'single') {
+        await apiClient.post(`/games/${gameId}/start`);
+      }
+
       push(`/game/${gameId}`);
     } catch (err) {
       console.error('Create game error:', err);

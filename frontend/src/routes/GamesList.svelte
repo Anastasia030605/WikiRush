@@ -2,15 +2,23 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import apiClient from '../lib/utils/axios';
+  import { user } from '../lib/stores/auth';
 
+  let currentUser = null;
   let games = [];
   let loading = true;
   let error = '';
+  let activeTab = 'active'; // 'active' or 'archive'
   let statusFilter = '';
   let modeFilter = '';
   let page = 1;
   let pageSize = 20;
   let total = 0;
+
+  // Subscribe to user store
+  user.subscribe(value => {
+    currentUser = value;
+  });
 
   const statusLabels = {
     waiting: 'Waiting',
@@ -34,11 +42,31 @@
         page_size: pageSize.toString()
       });
 
-      if (statusFilter) params.append('status', statusFilter);
+      // Apply status filter based on active tab
+      if (activeTab === 'active') {
+        // Show only waiting and in_progress games
+        if (statusFilter) {
+          params.append('status', statusFilter);
+        } else {
+          // Default: show both waiting and in_progress
+          // We'll filter finished games out on the client side
+        }
+      } else {
+        // Archive tab: show only finished games
+        params.append('status', 'finished');
+      }
+
       if (modeFilter) params.append('mode', modeFilter);
 
       const response = await apiClient.get(`/games?${params.toString()}`);
-      games = response.data.games;
+
+      // Filter out finished games in active tab if no specific status filter
+      if (activeTab === 'active' && !statusFilter) {
+        games = response.data.games.filter(game => game.status !== 'finished');
+      } else {
+        games = response.data.games;
+      }
+
       total = response.data.total;
     } catch (err) {
       console.error('Error loading games:', err);
@@ -49,6 +77,13 @@
   }
 
   function handleFilterChange() {
+    page = 1;
+    loadGames();
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    statusFilter = ''; // Reset status filter when switching tabs
     page = 1;
     loadGames();
   }
@@ -67,7 +102,43 @@
     }
   }
 
-  function joinGame(gameId) {
+  function isUserParticipant(game) {
+    if (!currentUser) return false;
+    // For single player games, creator is always the only participant
+    if (game.mode === 'single') {
+      return game.creator.id === currentUser.id;
+    }
+    // For multiplayer games, we would need the participants array
+    // For now, assume not a participant if not the creator
+    return game.creator.id === currentUser.id;
+  }
+
+  async function joinGame(gameId, game) {
+    const isParticipant = isUserParticipant(game);
+
+    // If game is waiting and single player
+    if (game.status === 'waiting' && game.mode === 'single') {
+      try {
+        // Join if not already a participant
+        if (!isParticipant) {
+          await apiClient.post(`/games/${gameId}/join`);
+        }
+
+        // Start the game
+        await apiClient.post(`/games/${gameId}/start`);
+      } catch (err) {
+        console.error('Error auto-starting game:', err);
+      }
+    } else if (game.status === 'waiting' && !isParticipant) {
+      // For multiplayer games, just join
+      try {
+        await apiClient.post(`/games/${gameId}/join`);
+      } catch (err) {
+        console.error('Error joining game:', err);
+      }
+    }
+
+    // Navigate to game page
     push(`/game/${gameId}`);
   }
 
@@ -96,16 +167,35 @@
       </button>
     </div>
 
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        class="tab"
+        class:active={activeTab === 'active'}
+        on:click={() => switchTab('active')}
+      >
+        Active Games
+      </button>
+      <button
+        class="tab"
+        class:active={activeTab === 'archive'}
+        on:click={() => switchTab('archive')}
+      >
+        Archive
+      </button>
+    </div>
+
     <div class="filters">
-      <div class="filter-group">
-        <label for="status">Status</label>
-        <select id="status" bind:value={statusFilter} on:change={handleFilterChange}>
-          <option value="">All</option>
-          <option value="waiting">Waiting</option>
-          <option value="in_progress">In Progress</option>
-          <option value="finished">Finished</option>
-        </select>
-      </div>
+      {#if activeTab === 'active'}
+        <div class="filter-group">
+          <label for="status">Status</label>
+          <select id="status" bind:value={statusFilter} on:change={handleFilterChange}>
+            <option value="">All</option>
+            <option value="waiting">Waiting</option>
+            <option value="in_progress">In Progress</option>
+          </select>
+        </div>
+      {/if}
 
       <div class="filter-group">
         <label for="mode">Mode</label>
@@ -174,13 +264,17 @@
 
             <button
               class="btn btn-primary btn-block"
-              on:click={() => joinGame(game.id)}
-              disabled={game.status === 'finished' || (game.status === 'waiting' && game.participants_count >= game.max_players)}
+              on:click={() => joinGame(game.id, game)}
+              disabled={game.status === 'finished' || (game.status === 'waiting' && !isUserParticipant(game) && game.participants_count >= game.max_players)}
             >
               {#if game.status === 'finished'}
                 Game Finished
-              {:else if game.status === 'waiting' && game.participants_count >= game.max_players}
+              {:else if game.status === 'waiting' && game.mode === 'single' && isUserParticipant(game)}
+                Start Game
+              {:else if game.status === 'waiting' && !isUserParticipant(game) && game.participants_count >= game.max_players}
                 Game Full
+              {:else if game.status === 'waiting' && isUserParticipant(game)}
+                Enter Game
               {:else if game.status === 'waiting'}
                 Join
               {:else}
@@ -226,6 +320,35 @@
   .header h1 {
     font-size: 2.5rem;
     color: var(--text-dark);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--light-pink);
+  }
+
+  .tab {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    transition: all 0.3s ease;
+    margin-bottom: -2px;
+  }
+
+  .tab:hover {
+    color: var(--primary-pink);
+  }
+
+  .tab.active {
+    color: var(--primary-pink);
+    border-bottom-color: var(--primary-pink);
   }
 
   .filters {

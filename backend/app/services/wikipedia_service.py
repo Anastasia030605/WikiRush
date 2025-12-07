@@ -40,7 +40,7 @@ class WikipediaService:
             "action": "query",
             "format": "json",
             "titles": title,
-            "prop": "Union[info, extracts]",
+            "prop": "info|extracts",
             "exintro": True,
             "explaintext": True,
         }
@@ -209,6 +209,33 @@ class WikipediaService:
             current_level = random.sample(next_level, min(3, len(next_level)))
 
         return None
+
+    async def get_article_html(self, title: str) -> Optional[Dict[str, Any]]:
+        """Получение HTML-содержимого статьи"""
+        params = {
+            "action": "parse",
+            "format": "json",
+            "page": title,
+            "prop": "text",
+            "disableeditsection": True,
+            "disabletoc": True,
+        }
+
+        try:
+            data = await self._make_request(params)
+            parse_result = data.get("parse", {})
+
+            if parse_result:
+                return {
+                    "title": parse_result.get("title", title),
+                    "html": parse_result.get("text", {}).get("*", ""),
+                    "page_id": parse_result.get("pageid"),
+                }
+
+            return None
+        except Exception as e:
+            print(f"Error fetching article HTML: {e}")
+            return None
 
 
 # Singleton instance

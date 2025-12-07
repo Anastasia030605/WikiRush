@@ -1,7 +1,7 @@
 """
 Сервис для работы с играми
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
@@ -187,7 +187,7 @@ class GameService:
             raise ValueError("В игре должен быть хотя бы один участник")
 
         game.status = GameStatus.IN_PROGRESS.value
-        game.started_at = datetime.utcnow()
+        game.started_at = datetime.now(timezone.utc)
 
         await db.commit()
         await db.refresh(game)
@@ -223,17 +223,105 @@ class GameService:
         if participant.is_finished:
             raise ValueError("Вы уже завершили игру")
 
-        # Проверяем лимит шагов
-        if participant.steps_count >= game.max_steps:
-            raise ValueError("Превышен лимит шагов")
-
         # Проверяем лимит времени
         if not game.started_at:
             raise ValueError("Игра не начата")
 
-        time_elapsed = (datetime.utcnow() - game.started_at).total_seconds()
+        # Handle both timezone-aware and timezone-naive datetimes
+        started_at = game.started_at
+        if started_at.tzinfo is None:
+            # Old games without timezone info - assume UTC
+            started_at = started_at.replace(tzinfo=timezone.utc)
+
+        time_elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
         if time_elapsed > game.time_limit:
+            print(f"[DEBUG] Time limit exceeded for participant {user_id} in game {game_id}")
+            # Время вышло - завершаем участника
+            participant.is_finished = True
+            participant.finished_at = datetime.now(timezone.utc)
+            participant.time_taken = int(time_elapsed)
+
+            # Сначала commit изменений участника
+            await db.commit()
+            await db.refresh(participant)
+            await db.refresh(game)
+
+            print(f"[DEBUG] After participant commit - is_finished={participant.is_finished}")
+
+            # Затем проверяем, нужно ли завершить игру
+            # Если одиночная игра, сразу завершаем игру
+            if game.mode == GameMode.SINGLE.value:
+                print(f"[DEBUG] Single player - finishing game")
+                game.status = GameStatus.FINISHED.value
+                game.finished_at = datetime.now(timezone.utc)
+                # Обновляем total_games для всех участников
+                for p in game.participants:
+                    u = await db.get(User, p.user_id)
+                    if u:
+                        u.total_games += 1
+                await db.commit()
+                await db.refresh(game)
+            # Для мультиплеера проверяем, все ли финишировали
+            else:
+                all_finished = all(p.is_finished for p in game.participants)
+                print(f"[DEBUG] Multiplayer - all_finished={all_finished}")
+                if all_finished:
+                    game.status = GameStatus.FINISHED.value
+                    game.finished_at = datetime.now(timezone.utc)
+                    # Обновляем total_games для всех участников
+                    for p in game.participants:
+                        u = await db.get(User, p.user_id)
+                        if u:
+                            u.total_games += 1
+                    await db.commit()
+                    await db.refresh(game)
+
             raise ValueError("Время вышло")
+
+        # Проверяем лимит шагов (после хода будет steps_count + 1)
+        if participant.steps_count >= game.max_steps:
+            print(f"[DEBUG] Step limit exceeded for participant {user_id} in game {game_id}")
+            # Лимит шагов превышен - завершаем участника
+            participant.is_finished = True
+            participant.finished_at = datetime.now(timezone.utc)
+            participant.time_taken = int(time_elapsed)
+
+            # Сначала commit изменений участника
+            await db.commit()
+            await db.refresh(participant)
+            await db.refresh(game)
+
+            print(f"[DEBUG] After participant commit - is_finished={participant.is_finished}")
+
+            # Затем проверяем, нужно ли завершить игру
+            # Если одиночная игра, сразу завершаем игру
+            if game.mode == GameMode.SINGLE.value:
+                print(f"[DEBUG] Single player - finishing game")
+                game.status = GameStatus.FINISHED.value
+                game.finished_at = datetime.now(timezone.utc)
+                # Обновляем total_games для всех участников
+                for p in game.participants:
+                    u = await db.get(User, p.user_id)
+                    if u:
+                        u.total_games += 1
+                await db.commit()
+                await db.refresh(game)
+            # Для мультиплеера проверяем, все ли финишировали
+            else:
+                all_finished = all(p.is_finished for p in game.participants)
+                print(f"[DEBUG] Multiplayer - all_finished={all_finished}")
+                if all_finished:
+                    game.status = GameStatus.FINISHED.value
+                    game.finished_at = datetime.now(timezone.utc)
+                    # Обновляем total_games для всех участников
+                    for p in game.participants:
+                        u = await db.get(User, p.user_id)
+                        if u:
+                            u.total_games += 1
+                    await db.commit()
+                    await db.refresh(game)
+
+            raise ValueError("Превышен лимит шагов")
 
         # Проверяем что ссылка существует
         current = participant.current_article or game.start_article
@@ -252,7 +340,7 @@ class GameService:
         if article == game.target_article:
             participant.is_finished = True
             participant.is_winner = True
-            participant.finished_at = datetime.utcnow()
+            participant.finished_at = datetime.now(timezone.utc)
             participant.time_taken = int(time_elapsed)
             is_winner = True
 
@@ -265,8 +353,44 @@ class GameService:
                 if not user.best_steps or participant.steps_count < user.best_steps:
                     user.best_steps = participant.steps_count
 
+        # Сначала commit всех изменений participant
         await db.commit()
         await db.refresh(participant)
+
+        # Затем проверяем, нужно ли завершить игру
+        if is_winner:
+            # Перезагружаем игру с обновленными participants
+            await db.refresh(game)
+
+            print(f"[DEBUG] is_winner=True, game.mode={game.mode}, GameMode.SINGLE.value={GameMode.SINGLE.value}")
+            print(f"[DEBUG] Comparison result: {game.mode == GameMode.SINGLE.value}")
+
+            # Если это одиночная игра, сразу завершаем игру
+            if game.mode == GameMode.SINGLE.value:
+                print(f"[DEBUG] Setting game status to FINISHED")
+                game.status = GameStatus.FINISHED.value
+                game.finished_at = datetime.now(timezone.utc)
+                # Обновляем total_games для всех участников
+                for p in game.participants:
+                    u = await db.get(User, p.user_id)
+                    if u:
+                        u.total_games += 1
+            # Для мультиплеера проверяем, все ли финишировали
+            elif game.mode in [GameMode.MULTIPLAYER.value, GameMode.COOPERATIVE.value]:
+                # Проверяем, все ли участники финишировали или превысили лимиты
+                all_finished = all(p.is_finished for p in game.participants)
+                if all_finished:
+                    game.status = GameStatus.FINISHED.value
+                    game.finished_at = datetime.now(timezone.utc)
+                    # Обновляем total_games для всех участников
+                    for p in game.participants:
+                        u = await db.get(User, p.user_id)
+                        if u:
+                            u.total_games += 1
+
+            # Commit изменений игры
+            await db.commit()
+            await db.refresh(game)
 
         # Проверяем и выдаем достижения после победы
         if is_winner:
@@ -284,7 +408,7 @@ class GameService:
             raise ValueError("Игра не найдена")
 
         game.status = GameStatus.FINISHED.value
-        game.finished_at = datetime.utcnow()
+        game.finished_at = datetime.now(timezone.utc)
 
         # Обновляем статистику всех участников и проверяем достижения
         from app.services.achievement_service import achievement_service
@@ -319,3 +443,4 @@ class GameService:
 
 # Singleton instance
 game_service = GameService()
+

@@ -56,3 +56,16 @@ async def search_articles(query: str, limit: int = 10):
         ],
         "total": len(results),
     }
+
+
+@router.get("/article/{title}/content")
+async def get_article_content(title: str):
+    """Получить HTML-содержимое статьи"""
+    article_html = await wikipedia_service.get_article_html(title)
+
+    if not article_html:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Статья '{title}' не найдена"
+        )
+
+    return article_html

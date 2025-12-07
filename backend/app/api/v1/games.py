@@ -75,7 +75,19 @@ async def list_games(
     )
 
     games_public = [
-        GamePublic(**game.__dict__, participants_count=len(game.participants))
+        GamePublic(
+            id=game.id,
+            mode=game.mode,
+            status=game.status,
+            start_article=game.start_article,
+            target_article=game.target_article,
+            max_steps=game.max_steps,
+            time_limit=game.time_limit,
+            max_players=game.max_players,
+            created_at=game.created_at,
+            creator=game.creator,
+            participants_count=len(game.participants)
+        )
         for game in games
     ]
 
@@ -103,14 +115,19 @@ async def get_random_articles():
     # Генерируем целевую статью, достижимую за 2-3 перехода
     depth = random.randint(2, 3)
     target_article = None
-    max_attempts = 3
+    max_attempts = 10
 
     for _ in range(max_attempts):
-        target_article = await wikipedia_service.get_reachable_article_at_depth(
+        candidate = await wikipedia_service.get_reachable_article_at_depth(
             start_article, depth
         )
-        if target_article and target_article != start_article:
-            break
+
+        # Проверяем, что статья существует и получаем её точное название
+        if candidate and candidate != start_article:
+            article_info = await wikipedia_service.get_article_info(candidate)
+            if article_info and "title" in article_info:
+                target_article = article_info["title"]
+                break
 
     if not target_article or target_article == start_article:
         raise HTTPException(
@@ -177,12 +194,17 @@ async def get_available_links(
     # Получаем текущую статью
     current_article = participant.current_article or game.start_article
 
-    # Получаем доступные ссылки
-    links = await wikipedia_service.get_article_links(current_article, limit=100)
+    # Получаем доступные ссылки (максимум 500 - лимит Wikipedia API)
+    links = await wikipedia_service.get_article_links(current_article, limit=500)
+
+    # Получаем описание целевой статьи
+    target_info = await wikipedia_service.get_article_info(game.target_article)
+    target_description = target_info.get("extract", "") if target_info else ""
 
     return {
         "current_article": current_article,
         "target_article": game.target_article,
+        "target_description": target_description,
         "available_links": links,
         "total_links": len(links),
     }
