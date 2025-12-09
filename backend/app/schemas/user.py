@@ -47,6 +47,7 @@ class UserPublic(BaseModel):
 
     id: int
     username: str
+    avatar_url: Optional[str] = None
     total_games: int
     total_wins: int
     best_time: Optional[int]

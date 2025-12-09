@@ -23,7 +23,8 @@
   const statusLabels = {
     waiting: 'Waiting',
     in_progress: 'In Progress',
-    finished: 'Finished'
+    finished: 'Finished',
+    cancelled: 'Cancelled'
   };
 
   const modeLabels = {
@@ -47,24 +48,30 @@
         // Show only waiting and in_progress games
         if (statusFilter) {
           params.append('status', statusFilter);
-        } else {
-          // Default: show both waiting and in_progress
-          // We'll filter finished games out on the client side
         }
       } else {
-        // Archive tab: show only finished games
-        params.append('status', 'finished');
+        // Archive tab: we'll filter on client side to include both finished and cancelled
       }
 
       if (modeFilter) params.append('mode', modeFilter);
 
       const response = await apiClient.get(`/games?${params.toString()}`);
 
-      // Filter out finished games in active tab if no specific status filter
-      if (activeTab === 'active' && !statusFilter) {
-        games = response.data.games.filter(game => game.status !== 'finished');
+      // Filter games based on active tab
+      if (activeTab === 'active') {
+        // Active tab: show only waiting and in_progress games
+        if (!statusFilter) {
+          games = response.data.games.filter(game =>
+            game.status === 'waiting' || game.status === 'in_progress'
+          );
+        } else {
+          games = response.data.games;
+        }
       } else {
-        games = response.data.games;
+        // Archive tab: show only finished and cancelled games
+        games = response.data.games.filter(game =>
+          game.status === 'finished' || game.status === 'cancelled'
+        );
       }
 
       total = response.data.total;
@@ -116,21 +123,8 @@
   async function joinGame(gameId, game) {
     const isParticipant = isUserParticipant(game);
 
-    // If game is waiting and single player
-    if (game.status === 'waiting' && game.mode === 'single') {
-      try {
-        // Join if not already a participant
-        if (!isParticipant) {
-          await apiClient.post(`/games/${gameId}/join`);
-        }
-
-        // Start the game
-        await apiClient.post(`/games/${gameId}/start`);
-      } catch (err) {
-        console.error('Error auto-starting game:', err);
-      }
-    } else if (game.status === 'waiting' && !isParticipant) {
-      // For multiplayer games, just join
+    // Join game if not already a participant
+    if (game.status === 'waiting' && !isParticipant) {
       try {
         await apiClient.post(`/games/${gameId}/join`);
       } catch (err) {
@@ -138,7 +132,7 @@
       }
     }
 
-    // Navigate to game page
+    // Navigate to game page (without auto-starting)
     push(`/game/${gameId}`);
   }
 
@@ -269,8 +263,6 @@
             >
               {#if game.status === 'finished'}
                 Game Finished
-              {:else if game.status === 'waiting' && game.mode === 'single' && isUserParticipant(game)}
-                Start Game
               {:else if game.status === 'waiting' && !isUserParticipant(game) && game.participants_count >= game.max_players}
                 Game Full
               {:else if game.status === 'waiting' && isUserParticipant(game)}
@@ -466,6 +458,11 @@
   .status-finished {
     background: var(--light-pink);
     color: var(--primary-pink);
+  }
+
+  .status-cancelled {
+    background: #fee;
+    color: #dc2626;
   }
 
   .game-info {

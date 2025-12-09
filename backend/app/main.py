@@ -2,10 +2,12 @@
 FastAPI приложение WikiRush
 """
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_router
 from app.core.config import settings
@@ -56,6 +58,11 @@ app.add_middleware(
 
 # Подключаем роуты
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Подключаем статические файлы для аватаров
+uploads_path = os.path.join(os.path.dirname(__file__), "..", "uploads")
+os.makedirs(uploads_path, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
 @app.get("/")

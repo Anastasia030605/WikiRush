@@ -28,6 +28,20 @@ class GameService:
         max_players: int,
     ) -> Game:
         """Создание новой игры"""
+        # Проверяем количество незавершенных игр пользователя
+        result = await db.execute(
+            select(func.count())
+            .select_from(Game)
+            .where(
+                Game.creator_id == creator_id,
+                Game.status.in_([GameStatus.WAITING.value, GameStatus.IN_PROGRESS.value])
+            )
+        )
+        active_games_count = result.scalar()
+
+        if active_games_count >= 3:
+            raise ValueError("Вы не можете создать более 3 незавершенных игр одновременно")
+
         # Генерируем случайные статьи если не указаны
         if not start_article:
             start_article = await wikipedia_service.get_random_article()
@@ -101,10 +115,11 @@ class GameService:
         db: AsyncSession,
         status: Optional[GameStatus] = None,
         mode: Optional[GameMode] = None,
+        user_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Tuple[List[Game], int]:
-        """Получение списка игр"""
+        """Получение списка игр с фильтрацией по участию пользователя"""
         query = select(Game).options(
             selectinload(Game.creator), selectinload(Game.participants)
         )
@@ -115,6 +130,27 @@ class GameService:
         if mode:
             query = query.where(Game.mode == mode.value)
 
+        # Фильтрация по участию пользователя
+        # Всегда скрываем чужие одиночные игры
+        if user_id is not None:
+            from sqlalchemy import or_
+
+            # Базовая фильтрация: показываем только мультиплеерные игры или свои одиночные
+            base_filter = or_(
+                Game.mode != GameMode.SINGLE.value,  # Все мультиплеерные игры
+                Game.creator_id == user_id  # Или одиночные игры пользователя
+            )
+
+            # Для завершенных игр дополнительно фильтруем по участию
+            if status and status.value in [GameStatus.FINISHED.value, GameStatus.CANCELLED.value]:
+                query = query.join(GameParticipant).where(
+                    GameParticipant.user_id == user_id,
+                    base_filter
+                )
+            # Для активных игр просто применяем базовый фильтр
+            else:
+                query = query.where(base_filter)
+
         query = query.order_by(Game.created_at.desc())
 
         # Получаем общее количество
@@ -123,6 +159,23 @@ class GameService:
             count_query = count_query.where(Game.status == status.value)
         if mode:
             count_query = count_query.where(Game.mode == mode.value)
+
+        # Применяем ту же фильтрацию для подсчета
+        if user_id is not None:
+            from sqlalchemy import or_
+
+            base_filter = or_(
+                Game.mode != GameMode.SINGLE.value,
+                Game.creator_id == user_id
+            )
+
+            if status and status.value in [GameStatus.FINISHED.value, GameStatus.CANCELLED.value]:
+                count_query = count_query.join(GameParticipant).where(
+                    GameParticipant.user_id == user_id,
+                    base_filter
+                )
+            else:
+                count_query = count_query.where(base_filter)
 
         total_result = await db.execute(count_query)
         total = total_result.scalar()
@@ -241,6 +294,11 @@ class GameService:
             participant.finished_at = datetime.now(timezone.utc)
             participant.time_taken = int(time_elapsed)
 
+            # Обновляем total_games для пользователя
+            user = await db.get(User, user_id)
+            if user:
+                user.total_games += 1
+
             # Сначала commit изменений участника
             await db.commit()
             await db.refresh(participant)
@@ -254,11 +312,6 @@ class GameService:
                 print(f"[DEBUG] Single player - finishing game")
                 game.status = GameStatus.FINISHED.value
                 game.finished_at = datetime.now(timezone.utc)
-                # Обновляем total_games для всех участников
-                for p in game.participants:
-                    u = await db.get(User, p.user_id)
-                    if u:
-                        u.total_games += 1
                 await db.commit()
                 await db.refresh(game)
             # Для мультиплеера проверяем, все ли финишировали
@@ -286,6 +339,11 @@ class GameService:
             participant.finished_at = datetime.now(timezone.utc)
             participant.time_taken = int(time_elapsed)
 
+            # Обновляем total_games для пользователя
+            user = await db.get(User, user_id)
+            if user:
+                user.total_games += 1
+
             # Сначала commit изменений участника
             await db.commit()
             await db.refresh(participant)
@@ -299,11 +357,6 @@ class GameService:
                 print(f"[DEBUG] Single player - finishing game")
                 game.status = GameStatus.FINISHED.value
                 game.finished_at = datetime.now(timezone.utc)
-                # Обновляем total_games для всех участников
-                for p in game.participants:
-                    u = await db.get(User, p.user_id)
-                    if u:
-                        u.total_games += 1
                 await db.commit()
                 await db.refresh(game)
             # Для мультиплеера проверяем, все ли финишировали
@@ -347,6 +400,7 @@ class GameService:
             # Обновляем статистику пользователя
             user = await db.get(User, user_id)
             if user:
+                user.total_games += 1  # Инкрементируем total_games при победе
                 user.total_wins += 1
                 if not user.best_time or participant.time_taken < user.best_time:
                     user.best_time = participant.time_taken
@@ -370,11 +424,6 @@ class GameService:
                 print(f"[DEBUG] Setting game status to FINISHED")
                 game.status = GameStatus.FINISHED.value
                 game.finished_at = datetime.now(timezone.utc)
-                # Обновляем total_games для всех участников
-                for p in game.participants:
-                    u = await db.get(User, p.user_id)
-                    if u:
-                        u.total_games += 1
             # Для мультиплеера проверяем, все ли финишировали
             elif game.mode in [GameMode.MULTIPLAYER.value, GameMode.COOPERATIVE.value]:
                 # Проверяем, все ли участники финишировали или превысили лимиты
@@ -400,6 +449,27 @@ class GameService:
 
         return participant, is_winner
 
+    async def cancel_game(self, db: AsyncSession, game_id: int, user_id: int) -> Game:
+        """Отмена игры (только создатель)"""
+        game = await self.get_game(db, game_id)
+
+        if not game:
+            raise ValueError("Игра не найдена")
+
+        if game.creator_id != user_id:
+            raise ValueError("Только создатель может отменить игру")
+
+        if game.status not in [GameStatus.WAITING.value, GameStatus.IN_PROGRESS.value]:
+            raise ValueError("Игру можно отменить только если она не завершена")
+
+        game.status = GameStatus.CANCELLED.value
+        game.finished_at = datetime.now(timezone.utc)
+
+        await db.commit()
+        await db.refresh(game)
+
+        return game
+
     async def finish_game(self, db: AsyncSession, game_id: int) -> Game:
         """Завершение игры"""
         game = await self.get_game(db, game_id)
@@ -410,13 +480,19 @@ class GameService:
         game.status = GameStatus.FINISHED.value
         game.finished_at = datetime.now(timezone.utc)
 
-        # Обновляем статистику всех участников и проверяем достижения
+        # Обновляем статистику только для участников, которые еще не были завершены
+        # (чтобы избежать дублирования при повторных вызовах finish_game)
         from app.services.achievement_service import achievement_service
 
         for participant in game.participants:
-            user = await db.get(User, participant.user_id)
-            if user:
-                user.total_games += 1
+            # Инкрементируем total_games только если участник еще не был завершен
+            if not participant.is_finished:
+                participant.is_finished = True
+                participant.finished_at = datetime.now(timezone.utc)
+
+                user = await db.get(User, participant.user_id)
+                if user:
+                    user.total_games += 1
 
         await db.commit()
 

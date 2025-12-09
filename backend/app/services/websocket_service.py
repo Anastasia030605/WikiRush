@@ -105,6 +105,12 @@ class ConnectionManager:
             {"type": "game_finished", "message": "Игра завершена"}, game_id
         )
 
+    async def notify_game_cancelled(self, game_id: int):
+        """Уведомление об отмене игры"""
+        await self.broadcast_to_game(
+            {"type": "game_cancelled", "message": "Игра была отменена создателем"}, game_id
+        )
+
 
 # Singleton instance
 websocket_manager = ConnectionManager()

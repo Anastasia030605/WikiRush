@@ -78,16 +78,7 @@
 
       isGameStarted = game.status === 'in_progress';
 
-      // Auto-start single player game if participant joined but game not started
-      if (game.mode === 'single' && game.status === 'waiting' && participant) {
-        try {
-          await apiClient.post(`/games/${gameId}/start`);
-          await loadGame(); // Reload to get updated status
-          return;
-        } catch (err) {
-          console.error('Error auto-starting game:', err);
-        }
-      }
+      // Убрали автостарт для одиночных игр - даем возможность отменить игру
 
       if (isGameStarted && !isGameFinished) {
         startTimer();
@@ -456,6 +447,23 @@
     }
   }
 
+  async function cancelGame() {
+    if (!confirm('Вы уверены, что хотите отменить игру?')) {
+      return;
+    }
+
+    try {
+      await apiClient.post(`/games/${gameId}/cancel`);
+      addNotification('Игра отменена', 'info');
+      setTimeout(() => {
+        push('/games');
+      }, 2000);
+    } catch (err) {
+      console.error('Error cancelling game:', err);
+      error = err.response?.data?.detail || 'Failed to cancel game';
+    }
+  }
+
   async function makeMove(article) {
     try {
       const response = await apiClient.post(`/games/${gameId}/move`, {
@@ -524,6 +532,7 @@
           `${data.username} moved to "${data.article}" (step ${data.steps})`,
           'info'
         );
+        loadGame(); // Обновляем состояние игры
         break;
 
       case 'player_won':
@@ -532,6 +541,13 @@
           'success'
         );
         loadGame();
+        break;
+
+      case 'game_cancelled':
+        addNotification('Game was cancelled by creator', 'error');
+        setTimeout(() => {
+          push('/games');
+        }, 3000);
         break;
     }
   }
@@ -674,9 +690,14 @@
           </div>
 
           {#if game.creator.id === participant.user_id}
-            <button class="btn btn-primary" on:click={startGame}>
-              Start Game
-            </button>
+            <div class="action-buttons">
+              <button class="btn btn-primary" on:click={startGame}>
+                Start Game
+              </button>
+              <button class="btn btn-danger" on:click={cancelGame}>
+                Cancel Game
+              </button>
+            </div>
           {:else}
             <p class="info-text">Waiting for creator to start the game...</p>
           {/if}
@@ -903,6 +924,22 @@
   .info-text {
     color: var(--text-light);
     margin: 20px 0;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
   }
 
   .game-play {

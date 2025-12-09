@@ -57,15 +57,14 @@ class GameMonitor:
                             participant.time_taken = int(time_elapsed)
                             print(f"[MONITOR] Marking participant {participant.user_id} as finished")
 
+                            # Обновляем total_games только для тех, кто НЕ был завершен
+                            user = await db.get(User, participant.user_id)
+                            if user:
+                                user.total_games += 1
+
                     # Завершаем игру
                     game.status = GameStatus.FINISHED.value
                     game.finished_at = datetime.now(timezone.utc)
-
-                    # Обновляем total_games для всех участников
-                    for participant in participants:
-                        user = await db.get(User, participant.user_id)
-                        if user:
-                            user.total_games += 1
 
                     await db.commit()
                     print(f"[MONITOR] Game {game.id} finished due to timeout")

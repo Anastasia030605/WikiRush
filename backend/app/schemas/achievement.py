@@ -83,3 +83,19 @@ class ShareAchievementResponse(BaseModel):
     user_name: str
     rarity_percentage: float
     share_text: str  # Готовый текст для шаринга
+
+
+class UserAchievementResponse(BaseModel):
+    """Достижение пользователя для профиля"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    achievement_id: int
+    achievement_name: str
+    achievement_description: str
+    achievement_icon: Optional[str]
+    achievement_category: str
+    achievement_points: int
+    unlocked_at: datetime
+    progress: int

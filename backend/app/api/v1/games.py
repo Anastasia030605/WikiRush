@@ -58,18 +58,20 @@ async def create_game(
 @router.get("", response_model=GameListResponse)
 async def list_games(
     db: DBSession,
+    current_user: CurrentUser,
     status_filter: Optional[GameStatus] = Query(None, alias="status"),
     mode: Optional[GameMode] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """Получение списка игр"""
+    """Получение списка игр с фильтрацией по участию пользователя"""
     skip = (page - 1) * page_size
 
     games, total = await game_service.list_games(
         db=db,
         status=status_filter,
         mode=mode,
+        user_id=current_user.id,
         skip=skip,
         limit=page_size,
     )
@@ -260,6 +262,25 @@ async def start_game(
         await websocket_manager.notify_game_started(game_id)
 
         return {"message": "Игра началась", "game_id": game_id}
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/{game_id}/cancel")
+async def cancel_game(
+    game_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Отмена игры (только создатель)"""
+    try:
+        game = await game_service.cancel_game(db, game_id, current_user.id)
+
+        # Уведомляем всех игроков
+        await websocket_manager.notify_game_cancelled(game_id)
+
+        return {"message": "Игра отменена", "game_id": game_id}
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
